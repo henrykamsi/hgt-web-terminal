@@ -47,4 +47,3 @@ RUN chmod +x /usr/local/bin/\$hgt~getversion \
 WORKDIR /home/user/workspace
 
 CMD ["/bin/bash"]
-c
