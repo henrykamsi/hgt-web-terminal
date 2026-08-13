@@ -1,7 +1,15 @@
-FROM node:20
+FROM node:20-slim
 
-# Install bash and standard utilities
-RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/lists/*
+# Install system dependencies & build tools required by node-pty and nano
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    nano \
+    curl \
+    git \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

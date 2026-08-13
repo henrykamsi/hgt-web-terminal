@@ -1,13 +1,14 @@
 {
   "name": "hgt-web-terminal",
-  "version": "1.2.0",
-  "description": "HGT Linux Web Terminal Cloud System",
+  "version": "1.3.0",
+  "description": "HGT Linux Web Terminal Cloud System with PTY Support",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
+    "node-pty": "^1.0.0",
     "ws": "^8.18.0"
   }
 }
