@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HGT Linux Cloud Environment</title>
+
+    <!-- Xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            color: #00ff00;
+            font-family: monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Terminal occupies full screen area above the keys */
+        #terminal-container {
+            flex: 1;
+            width: 100%;
+            background-color: #000000;
+            overflow: hidden;
+            padding: 5px;
+        }
+
+        /* Ensure Xterm viewport fills container and scrolls smoothly */
+        .xterm {
+            height: 100%;
+            padding: 5px;
+        }
+
+        /* Extra Keys & Control Bar fixed at bottom */
+        .extra-keys-bar {
+            background-color: #161b22;
+            border-top: 1px solid #30363d;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 8px;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .key-btn {
+            background-color: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #363b42;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .key-btn:active {
+            background-color: #388bfd;
+            color: #ffffff;
+        }
+
+        /* Distinct styling for Copy, Paste, and Enter */
+        .action-btn {
+            background-color: #1f6feb;
+            color: #ffffff;
+            border-color: #388bfd;
+        }
+
+        .enter-btn {
+            background-color: #238636;
+            color: #ffffff;
+            border-color: #2ea043;
+        }
+
+        .key-btn.ctrl-active {
+            background-color: #da3633;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fullscreen Terminal -->
+    <div id="terminal-container"></div>
+
+    <!-- Extra Keys & Action Toolbar at Bottom -->
+    <div class="extra-keys-bar">
+        <button class="key-btn action-btn" onclick="copySelection()">COPY 📋</button>
+        <button class="key-btn action-btn" onclick="pasteClipboard()">PASTE 📑</button>
+        <button class="key-btn enter-btn" onclick="sendKey('\r')">ENTER ↵</button>
+
+        <button class="key-btn" id="ctrl-toggle">CTRL</button>
+        <button class="key-btn" onclick="sendControlKey('x')">CTRL+X</button>
+        <button class="key-btn" onclick="sendControlKey('c')">CTRL+C</button>
+        <button class="key-btn" onclick="sendControlKey('o')">CTRL+O</button>
+        <button class="key-btn" onclick="sendControlKey('k')">CTRL+K</button>
+        <button class="key-btn" onclick="sendControlKey('w')">CTRL+W</button>
+        <button class="key-btn" onclick="sendKey('\x1b')">ESC</button>
+        <button class="key-btn" onclick="sendKey('\t')">TAB</button>
+        <button class="key-btn" onclick="sendKey('\x1b[A')">▲</button>
+        <button class="key-btn" onclick="sendKey('\x1b[B')">▼</button>
+        <button class="key-btn" onclick="sendKey('\x1b[D')">◀</button>
+        <button class="key-btn" onclick="sendKey('\x1b[C')">▶</button>
+    </div>
+
+    <!-- Xterm.js Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+    <script>
+        // Initialize Terminal with high scrollback buffer for vertical scrolling
+        const term = new Terminal({
+            cursorBlink: true,
+            scrollback: 5000, // Allows scrolling back up through 5000 lines of history
+            theme: {
+                background: '#000000',
+                foreground: '#00ff00',
+                cursor: '#00ff00',
+                selectionBackground: '#264f78'
+            },
+            fontFamily: 'Courier New, monospace',
+            fontSize: 14
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal-container'));
+        
+        // Auto-fit terminal to fill screen space
+        setTimeout(() => fitAddon.fit(), 100);
+
+        // Connect WebSocket
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+
+        socket.onmessage = (event) => {
+            term.write(event.data);
+        };
+
+        // COPY text highlighted on terminal screen
+        function copySelection() {
+            const selection = term.getSelection();
+            if (selection) {
+                navigator.clipboard.writeText(selection);
+            }
+        }
+
+        // PASTE clipboard text into terminal
+        function pasteClipboard() {
+            navigator.clipboard.readText().then(text => {
+                if (text && socket.readyState === WebSocket.OPEN) {
+                    socket.send(text);
+                }
+            });
+        }
+
+        // Send direct character (e.g. Enter \r, Tab \t, Esc \x1b)
+        function sendKey(character) {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(character);
+            }
+        }
+
+        // Control Key modifier handling
+        let ctrlPressed = false;
+        const ctrlBtn = document.getElementById('ctrl-toggle');
+
+        ctrlBtn.addEventListener('click', () => {
+            ctrlPressed = !ctrlPressed;
+            if (ctrlPressed) {
+                ctrlBtn.classList.add('ctrl-active');
+            } else {
+                ctrlBtn.classList.remove('ctrl-active');
+            }
+        });
+
+        function sendControlKey(letter) {
+            if (socket.readyState === WebSocket.OPEN) {
+                const code = letter.toLowerCase().charCodeAt(0) - 96;
+                socket.send(String.fromCharCode(code));
+            }
+        }
+
+        term.onData((data) => {
+            if (socket.readyState === WebSocket.OPEN) {
+                if (ctrlPressed && data.length === 1) {
+                    const charCode = data.toLowerCase().charCodeAt(0);
+                    if (charCode >= 97 && charCode <= 122) {
+                        socket.send(String.fromCharCode(charCode - 96));
+                        ctrlPressed = false;
+                        ctrlBtn.classList.remove('ctrl-active');
+                        return;
+                    }
+                }
+                socket.send(data);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+        });
+    </script>
+</body>
+</html>
